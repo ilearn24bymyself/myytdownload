@@ -1,0 +1,8 @@
+venv_gpu/
+models/
+bin/
+__pycache__/
+*.pyc
+download_archive.txt
+startup.log
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/
