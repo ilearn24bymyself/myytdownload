@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube Whisperer 安裝流程</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+
+<style>
+  :root{
+    --bg: #12151b;
+    --surface: #1b202a;
+    --surface-2: #212734;
+    --border: #2b3240;
+    --border-soft: #232a36;
+    --text: #e9e6df;
+    --text-dim: #9aa2b1;
+    --text-faint: #626b7a;
+    --accent: #e8a33d;
+    --accent-soft: #3a2f1c;
+    --ok: #5fb89c;
+    --ok-soft: #1c2e2a;
+    --skip: #6b7785;
+    --mono: 'JetBrains Mono', 'Noto Sans TC', monospace;
+    --sans: 'IBM Plex Sans', 'Noto Sans TC', sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    margin:0;
+    padding:0;
+  }
+
+  .page{
+    max-width:920px;
+    margin:0 auto;
+    padding:56px 24px 96px;
+  }
+
+  header{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    margin-bottom:44px;
+    padding-bottom:32px;
+    border-bottom:1px solid var(--border-soft);
+  }
+
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12.5px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+  }
+
+  h1{
+    font-size:clamp(28px,4vw,38px);
+    font-weight:700;
+    line-height:1.15;
+    margin:0;
+    text-wrap:balance;
+    letter-spacing:-0.01em;
+  }
+
+  .sub{
+    font-size:16px;
+    line-height:1.6;
+    color:var(--text-dim);
+    max-width:64ch;
+    margin:0;
+  }
+
+  .sub code{
+    font-family:var(--mono);
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:1px 6px;
+    font-size:0.88em;
+    color:var(--text);
+  }
+
+  .legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 22px;
+    margin-bottom:32px;
+  }
+
+  .legend-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--text-dim);
+  }
+
+  .swatch{
+    width:11px;
+    height:11px;
+    border-radius:3px;
+    flex:none;
+  }
+  .swatch.dl{ background:var(--accent); }
+  .swatch.ok{ background:var(--ok); }
+  .swatch.skip{ background:var(--skip); }
+  .swatch.dec{ background:transparent; border:1.5px solid var(--text-faint); transform:rotate(45deg); border-radius:2px; }
+
+  .term{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    margin-bottom:40px;
+    box-shadow:0 20px 50px -30px rgba(0,0,0,0.6);
+  }
+
+  .term-bar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px 16px;
+    background:var(--surface-2);
+    border-bottom:1px solid var(--border);
+  }
+
+  .term-dot{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    flex:none;
+  }
+  .term-dot:nth-child(1){ background:#e8636b; }
+  .term-dot:nth-child(2){ background:#e8b84a; }
+  .term-dot:nth-child(3){ background:#5fb89c; }
+
+  .term-title{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--text-faint);
+    margin-left:6px;
+  }
+
+  .term-body{
+    padding:28px 20px 20px;
+    overflow-x:auto;
+  }
+
+  .term-body .mermaid{
+    display:flex;
+    justify-content:center;
+  }
+
+  h2{
+    font-size:14px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.09em;
+    color:var(--text-dim);
+    margin:0 0 16px;
+  }
+
+  section + section{ margin-top:40px; }
+
+  .table-wrap{
+    overflow-x:auto;
+    border:1px solid var(--border);
+    border-radius:10px;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:14.5px;
+    min-width:560px;
+  }
+
+  thead th{
+    text-align:left;
+    font-family:var(--mono);
+    font-size:11.5px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    font-weight:500;
+    padding:12px 16px;
+    background:var(--surface-2);
+    border-bottom:1px solid var(--border);
+  }
+
+  tbody td{
+    padding:13px 16px;
+    border-bottom:1px solid var(--border-soft);
+    color:var(--text-dim);
+    vertical-align:top;
+  }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:var(--surface-2); }
+
+  td.name{ color:var(--text); font-weight:500; }
+
+  td .src{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--accent);
+  }
+
+  td .size{
+    font-family:var(--mono);
+    font-variant-numeric:tabular-nums;
+    color:var(--text);
+    white-space:nowrap;
+  }
+
+  .tag{
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:0.04em;
+    padding:2px 7px;
+    border-radius:4px;
+    white-space:nowrap;
+  }
+  .tag.once{ background:var(--accent-soft); color:var(--accent); }
+  .tag.always{ background:var(--surface-2); color:var(--text-faint); border:1px solid var(--border); }
+
+  .summary{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:1px;
+    background:var(--border);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+  }
+
+  .summary-cell{
+    background:var(--surface);
+    padding:20px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+
+  .summary-cell .num{
+    font-family:var(--mono);
+    font-size:26px;
+    font-weight:600;
+    color:var(--accent);
+    font-variant-numeric:tabular-nums;
+  }
+
+  .summary-cell .label{
+    font-size:12.5px;
+    color:var(--text-dim);
+    line-height:1.4;
+  }
+
+  footer{
+    margin-top:56px;
+    padding-top:24px;
+    border-top:1px solid var(--border-soft);
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--text-faint);
+    line-height:1.7;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header>
+    <div class="eyebrow">3-4 · myytdownload · 安裝與執行流程</div>
+    <h1>從雙擊到打開字幕稿,中間發生了什麼</h1>
+    <p class="sub">
+      這是 <code>01_啟動_GPU版.bat</code>(CPU版邏輯相同,只差安裝的套件清單)從第一次執行到產出逐字稿,
+      完整會經過的判斷分支、下載來源與檔案大小。灰色節點是「已經裝過,直接略過」的路徑。
+    </p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><span class="swatch dec"></span>判斷分支</div>
+    <div class="legend-item"><span class="swatch dl"></span>需要下載</div>
+    <div class="legend-item"><span class="swatch ok"></span>本機動作 / 完成</div>
+    <div class="legend-item"><span class="swatch skip"></span>已存在,略過</div>
+  </div>
+
+  <div class="term">
+    <div class="term-bar">
+      <span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span>
+      <span class="term-title">01_啟動_GPU版.bat</span>
+    </div>
+    <div class="term-body">
+      <pre class="mermaid">
+flowchart TD
+    Start(["雙擊 01_啟動_GPU版.bat"]):::terminalNode --> CheckAll{"venv_gpu\python.exe 且\nbin\ffmpeg.exe 且\nbin\ffprobe.exe\n都存在?"}:::decision
+    CheckAll -->|"全部都在"| LaunchWeb
+    CheckAll -->|"缺任何一個"| Bootstrap["呼叫 bootstrap.ps1"]:::action
+
+    Bootstrap --> S1A
+
+    subgraph STEP1["步驟 1／2 · Python 執行環境"]
+        direction TB
+        S1A{"python.exe 存在?"}:::decision -->|"不存在"| S1B["下載 python_3.10.11.zip\n約 30MB · nuget.org"]:::download
+        S1B --> S1C["解壓縮至 venv_gpu\n啟用 site-packages"]:::action
+        S1A -->|"存在"| S1D["略過解壓縮"]:::skip
+        S1C --> S1E
+        S1D --> S1E{"streamlit 已裝\n且模式(GPU/CPU)吻合?"}:::decision
+        S1E -->|"否"| S1F["pip install\nrequirements_GPU/CPU.txt\n約 5GB／1GB\npypi.org + download.pytorch.org"]:::download
+        S1F --> S1G["寫入模式標記檔"]:::action
+        S1E -->|"是"| S1H["略過安裝"]:::skip
+    end
+
+    S1G --> S2A
+    S1H --> S2A
+
+    subgraph STEP2["步驟 2／2 · ffmpeg / ffprobe"]
+        direction TB
+        S2A{"ffmpeg.exe 且\nffprobe.exe 存在?"}:::decision -->|"否"| S2B["下載 ffmpeg 壓縮檔\n約 160MB\nGitHub BtbN/FFmpeg-Builds"]:::download
+        S2B --> S2C["解壓縮並複製到 bin/"]:::action
+        S2A -->|"是"| S2D["略過下載"]:::skip
+    end
+
+    S2C --> LaunchWeb
+    S2D --> LaunchWeb
+
+    LaunchWeb["啟動網頁\nrun.py 找空閒 port\n→ streamlit run app.py"]:::action --> Browser(["瀏覽器自動開啟\nYouTube Whisperer 介面"]):::terminalNode
+    Browser --> UserAction["使用者輸入網址\n按「開始」"]:::action
+    UserAction --> Download["下載影音\nyt-dlp + ffmpeg\n→ downloads/"]:::action
+    Download --> ModelCheck{"語音模型存在?\nmodels/breeze-asr-25"}:::decision
+    ModelCheck -->|"不存在(僅首次)"| ModelDL["下載 Breeze-ASR-25\n約 3GB · HuggingFace"]:::download
+    ModelCheck -->|"存在"| Transcribe
+    ModelDL --> Transcribe["語音辨識\nfaster-whisper\nGPU優先,自動降級CPU"]:::action
+    Transcribe --> Output(["輸出 .txt 逐字稿 + .srt 字幕\n自動開啟資料夾"]):::terminalNode
+
+    classDef terminalNode fill:#212734,stroke:#e8a33d,stroke-width:1.5px,color:#e9e6df,font-family:JetBrains Mono,font-size:13px,rx:8,ry:8
+    classDef decision fill:#1b202a,stroke:#9aa2b1,stroke-width:1.3px,color:#e9e6df,font-family:IBM Plex Sans,font-size:13px
+    classDef download fill:#3a2f1c,stroke:#e8a33d,stroke-width:1.5px,color:#f0d9ab,font-family:JetBrains Mono,font-size:12.5px,rx:6,ry:6
+    classDef action fill:#1b202a,stroke:#3a4353,stroke-width:1.2px,color:#e9e6df,font-family:IBM Plex Sans,font-size:13px,rx:6,ry:6
+    classDef skip fill:#1b202a,stroke:#2b3240,stroke-width:1px,color:#8b93a1,font-family:IBM Plex Sans,font-size:12.5px,rx:6,ry:6
+      </pre>
+    </div>
+  </div>
+
+  <section>
+    <h2>外部下載來源一覽</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>項目</th><th>來源</th><th>大小</th><th>時機</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">Python 執行環境</td>
+            <td><span class="src">nuget.org</span></td>
+            <td><span class="size">~30 MB</span></td>
+            <td><span class="tag once">僅首次</span></td>
+          </tr>
+          <tr>
+            <td class="name">Python 套件(GPU 模式,含 PyTorch)</td>
+            <td><span class="src">pypi.org + download.pytorch.org</span></td>
+            <td><span class="size">~5 GB</span></td>
+            <td><span class="tag once">僅首次 / 模式切換時</span></td>
+          </tr>
+          <tr>
+            <td class="name">Python 套件(CPU 模式,不含 PyTorch)</td>
+            <td><span class="src">pypi.org</span></td>
+            <td><span class="size">~1 GB</span></td>
+            <td><span class="tag once">僅首次 / 模式切換時</span></td>
+          </tr>
+          <tr>
+            <td class="name">ffmpeg / ffprobe</td>
+            <td><span class="src">github.com/BtbN/FFmpeg-Builds</span></td>
+            <td><span class="size">~160 MB</span></td>
+            <td><span class="tag once">僅首次</span></td>
+          </tr>
+          <tr>
+            <td class="name">Breeze-ASR-25 語音模型</td>
+            <td><span class="src">huggingface.co</span></td>
+            <td><span class="size">~3 GB</span></td>
+            <td><span class="tag once">首次「開始」轉錄時</span></td>
+          </tr>
+          <tr>
+            <td class="name">YouTube 影音本體</td>
+            <td><span class="src">youtube.com(經 yt-dlp)</span></td>
+            <td><span class="size">依影片而定</span></td>
+            <td><span class="tag always">每次下載新影片</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>首次執行總磁碟空間</h2>
+    <div class="summary">
+      <div class="summary-cell">
+        <div class="num">~5.2 GB</div>
+        <div class="label">執行環境 + 套件 + ffmpeg<br>(GPU 模式,啟動階段一次裝完)</div>
+      </div>
+      <div class="summary-cell">
+        <div class="num">~1.2 GB</div>
+        <div class="label">同上,CPU 模式<br>(不含 PyTorch)</div>
+      </div>
+      <div class="summary-cell">
+        <div class="num">+3 GB</div>
+        <div class="label">語音模型<br>(第一次按「開始」轉錄才觸發)</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    venv_gpu / bin / models 三個資料夾只要存在,重新執行就會全部略過對應步驟,不會重複下載。
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad:true,
+    theme:'base',
+    securityLevel:'loose',
+    themeVariables:{
+      background:'#1b202a',
+      primaryColor:'#1b202a',
+      primaryTextColor:'#e9e6df',
+      primaryBorderColor:'#3a4353',
+      lineColor:'#4a5364',
+      fontFamily:'IBM Plex Sans, Noto Sans TC, sans-serif',
+      fontSize:'13px',
+      edgeLabelBackground:'#1b202a',
+      clusterBkg:'#171b23',
+      clusterBorder:'#2b3240',
+      titleColor:'#9aa2b1'
+    },
+    flowchart:{ curve:'basis', padding:16, nodeSpacing:36, rankSpacing:48 }
+  });
+</script>
+
+</body>
+</html>
