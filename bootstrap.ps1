@@ -1,11 +1,12 @@
-# First-run auto-installer for 3-4.Yt-down-sub
+﻿# First-run auto-installer for 3-4.Yt-down-sub
 # Called automatically by 01/02/03 .bat launchers when venv_gpu or bin\ffmpeg.exe/ffprobe.exe
 # is missing. Requires nothing pre-installed beyond Windows 10/11's built-in PowerShell.
 # Each step only acts when something is actually missing, so it's safe and fast to call
 # this script on every launch as a check.
 
 $ErrorActionPreference = "Stop"
-$ProgressPreference = "SilentlyContinue"  # Invoke-WebRequest's built-in progress bar badly slows down large downloads on PS 5.1
+$ProgressPreference = "SilentlyContinue"  # 關掉PowerShell內建的下載進度條(在PS5.1上會嚴重拖慢大檔案下載速度)
+                                            # 進度改用下面Invoke-DownloadWithProgress自己算、自己印,不吃這個效能懲罰
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -25,10 +26,60 @@ if ($root.Length -gt 110) {
     Write-Host ""
 }
 
+# ---- 帶百分比進度的下載函式,取代Invoke-WebRequest,避免PowerShell內建進度條拖慢速度 ----
+function Invoke-DownloadWithProgress {
+    param(
+        [Parameter(Mandatory)] [string]$Uri,
+        [Parameter(Mandatory)] [string]$OutFile,
+        [Parameter(Mandatory)] [string]$Label
+    )
+
+    $request = [System.Net.HttpWebRequest]::Create($Uri)
+    $request.AllowAutoRedirect = $true
+    $response = $request.GetResponse()
+    $totalBytes = $response.ContentLength
+    $responseStream = $response.GetResponseStream()
+    $fileStream = [System.IO.File]::Create($OutFile)
+
+    $buffer = New-Object byte[] 65536
+    $totalRead = 0
+    $lastPrintedPercent = -1
+
+    try {
+        while ($true) {
+            $read = $responseStream.Read($buffer, 0, $buffer.Length)
+            if ($read -le 0) { break }
+            $fileStream.Write($buffer, 0, $read)
+            $totalRead += $read
+
+            if ($totalBytes -gt 0) {
+                $percent = [math]::Floor(($totalRead / $totalBytes) * 100)
+                if ($percent -ne $lastPrintedPercent) {
+                    $mbRead = [math]::Round($totalRead / 1MB, 1)
+                    $mbTotal = [math]::Round($totalBytes / 1MB, 1)
+                    Write-Host -NoNewline "`r[Setup] $Label : $percent% ($mbRead MB / $mbTotal MB)   "
+                    $lastPrintedPercent = $percent
+                }
+            }
+        }
+    } finally {
+        $fileStream.Close()
+        $responseStream.Close()
+        $response.Close()
+    }
+    Write-Host ""
+}
+
 $venvDir = Join-Path $root "venv_gpu"
 $pythonExe = Join-Path $venvDir "python.exe"
+$flavorMarker = Join-Path $venvDir "_installed_flavor.txt"
+$requestedFlavor = if ($env:FORCE_CPU -eq "1") { "CPU" } else { "GPU" }
+$requirementsFileName = if ($requestedFlavor -eq "CPU") { "requirements_CPU.txt" } else { "requirements_GPU.txt" }
 
-# ---- 1. Portable Python + packages ----
+Write-Host "[Setup] 步驟1/2:安裝Python執行環境($requestedFlavor 模式)"
+
+# ---- 1a. Portable Python本體(只看python.exe在不在,這部分不會半途而廢——
+#           解壓縮是原子性的資料夾操作,沒有「解壓一半」這種中間狀態) ----
 if (-not (Test-Path $pythonExe)) {
     Write-Host "[Setup] Runtime not found, installing portable Python (about 30MB)..."
 
@@ -38,7 +89,7 @@ if (-not (Test-Path $pythonExe)) {
 
     $pyZip = Join-Path $root "python_3.10.11.zip"
     $pyUrl = "https://www.nuget.org/api/v2/package/python/3.10.11"
-    Invoke-WebRequest -Uri $pyUrl -OutFile $pyZip
+    Invoke-DownloadWithProgress -Uri $pyUrl -OutFile $pyZip -Label "下載Python執行環境"
 
     $extractDir = Join-Path $root "_py_extract_tmp"
     if (Test-Path $extractDir) { Remove-Item -Recurse -Force $extractDir }
@@ -54,20 +105,46 @@ if (-not (Test-Path $pythonExe)) {
     if (Test-Path $pthFile) {
         (Get-Content $pthFile) -replace '^#import site$', 'import site' | Set-Content $pthFile
     }
+    Write-Host "[Setup] Python執行檔已就緒。"
+} else {
+    Write-Host "[Setup] Python執行檔已存在,略過解壓縮這步。"
+}
 
-    Write-Host "[Setup] Installing packages (about 5GB including PyTorch, this can take 10-30 minutes depending on your connection)..."
+# ---- 1b. pip套件——不能只看python.exe在不在就判斷「裝好了」,pip install本身
+#           可能中途失敗/被中斷(斷網、防毒軟體、使用者提早關視窗都可能發生),
+#           那樣python.exe會留下來但套件是空的,之後每次啟動都會被誤判成「已裝好」。
+#           改成直接檢查關鍵套件(streamlit)資料夾在不在,搭配flavor是否吻合,
+#           兩者只要有一個沒過,就重新跑一次pip install(pip install本身是冪等的,
+#           已經裝好的套件不會重複下載,只會補齊缺的/不合flavor的)。----
+$streamlitMarker = Join-Path $venvDir "Lib\site-packages\streamlit"
+$hasMarker = Test-Path $flavorMarker
+$installedFlavor = if ($hasMarker) { (Get-Content $flavorMarker -Raw).Trim() } else { "" }
+$packagesOk = (Test-Path $streamlitMarker) -and ($installedFlavor -eq $requestedFlavor)
+
+if (-not $packagesOk) {
+    if (Test-Path $streamlitMarker) {
+        Write-Host "[Setup] 偵測到目前環境是用「$installedFlavor」模式安裝的,但這次啟動要求「$requestedFlavor」模式,重新安裝對應套件..."
+    } else {
+        Write-Host "[Setup] 套件尚未安裝完成(可能是上次安裝中途中斷),開始安裝..."
+    }
+
+    $sizeLabel = if ($requestedFlavor -eq "CPU") { "約1GB,不含PyTorch" } else { "約5GB,含PyTorch" }
+    Write-Host "[Setup] 正在安裝套件($sizeLabel,這是整個安裝過程最花時間的部分,請耐心等候)..."
     & $pythonExe -m pip install --upgrade pip -q
-    & $pythonExe -m pip install -r (Join-Path $root "requirements_GPU.txt")
-    if ($LASTEXITCODE -ne 0) {
+    & $pythonExe -m pip install -r (Join-Path $root $requirementsFileName)
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $streamlitMarker)) {
         Write-Host "[Setup][ERROR] Package install failed. Check your internet connection and run this again."
         exit 1
     }
-    Write-Host "[Setup] Python runtime installed."
+    Set-Content -Path $flavorMarker -Value $requestedFlavor
+    Write-Host "[Setup] 套件安裝完成。"
 } else {
-    Write-Host "[Setup] Runtime already present, skipping."
+    Write-Host "[Setup] 套件已安裝完成($requestedFlavor 模式),略過。"
 }
 
 # ---- 2. ffmpeg / ffprobe ----
+Write-Host "[Setup] 步驟2/2:下載ffmpeg/ffprobe"
+
 $binDir = Join-Path $root "bin"
 $ffmpegExe = Join-Path $binDir "ffmpeg.exe"
 $ffprobeExe = Join-Path $binDir "ffprobe.exe"
@@ -78,7 +155,7 @@ if (-not (Test-Path $ffmpegExe) -or -not (Test-Path $ffprobeExe)) {
 
     $ffZip = Join-Path $root "ffmpeg_tmp.zip"
     $ffUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-    Invoke-WebRequest -Uri $ffUrl -OutFile $ffZip
+    Invoke-DownloadWithProgress -Uri $ffUrl -OutFile $ffZip -Label "下載ffmpeg"
 
     $ffExtractDir = Join-Path $root "_ffmpeg_extract_tmp"
     if (Test-Path $ffExtractDir) { Remove-Item -Recurse -Force $ffExtractDir }

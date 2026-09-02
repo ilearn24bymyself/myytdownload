@@ -6,3 +6,7 @@ __pycache__/
 download_archive.txt
 startup.log
 [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/
+_py_extract_tmp/
+_ffmpeg_extract_tmp/
+python_3.10.11.zip
+ffmpeg_tmp.zip
