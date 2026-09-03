@@ -5,6 +5,7 @@ import time
 from yt_dlp.utils import DownloadCancelled
 
 from downloader import download_media
+from index_builder import build_day_index
 from transcriber import Transcriber
 
 _transcriber = None
@@ -111,6 +112,10 @@ class JobRunner:
 
     def _run(self, urls, uploaded_paths, options):
         try:
+            # all_paths改成存dict，不再只存路徑字串——downloader.download_media()
+            # 現在會把yt-dlp的title/channel/url/upload_date一起帶出來，一路傳到
+            # transcriber存檔時才能寫進逐字稿/字幕的來源資訊區塊。本機上傳的檔案
+            # 沒有YouTube metadata，其餘欄位填None，下游會自動降級成「本機上傳」標記。
             all_paths = []
 
             if urls:
@@ -156,11 +161,19 @@ class JobRunner:
                 self.dl_done = True
 
             if uploaded_paths:
-                all_paths.extend(uploaded_paths)
+                all_paths.extend({
+                    "path": p, "title": None, "channel": None,
+                    "url": None, "upload_date": None, "video_id": None,
+                } for p in uploaded_paths)
+
+            today_dir = os.path.dirname(options["transcripts_dir"])
 
             if options["skip_transcription"]:
                 self.status = "done"
-                self.results = [(os.path.basename(p), p, "downloaded", 0.0) for p in all_paths]
+                self.results = [(os.path.basename(item["path"]), item["path"], "downloaded", 0.0) for item in all_paths]
+                # 這個模式沒有轉出txt/srt，所以index.html抓不到這批的來源資訊，
+                # 但還是重建一次，讓「有轉錄過的」那些項目維持最新。
+                build_day_index(today_dir)
                 return
 
             if not all_paths:
@@ -173,12 +186,13 @@ class JobRunner:
             self.device = transcriber.device
             self.compute_type = transcriber.compute_type
 
-            for idx, audio_path in enumerate(all_paths):
+            for idx, item in enumerate(all_paths):
                 self.pause_event.wait()
                 if self.stop_event.is_set():
                     self.status = "stopped"
                     return
 
+                audio_path = item["path"]
                 title = os.path.splitext(os.path.basename(audio_path))[0]
                 txt_path = os.path.join(options["transcripts_dir"], f"{title}.txt")
                 # SRT 存在跟影音檔同一個資料夾、同檔名，這樣播放器才能自動抓到字幕，
@@ -211,9 +225,9 @@ class JobRunner:
                     return
                 elapsed = time.time() - start_time
 
-                transcriber.save_transcript(text_result, txt_path)
+                transcriber.save_transcript(text_result, txt_path, metadata=item)
                 if options["output_srt"]:
-                    transcriber.save_srt(segments, srt_path)
+                    transcriber.save_srt(segments, srt_path, metadata=item)
                 self.results.append((title, txt_path, "done", elapsed))
 
                 if options["delete_audio"] and audio_path not in uploaded_paths:
@@ -226,6 +240,7 @@ class JobRunner:
 
             self.tx_done = True
             self.status = "done"
+            build_day_index(today_dir)
 
         except Exception as e:
             self.status = "error"

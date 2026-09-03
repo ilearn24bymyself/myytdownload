@@ -1,3 +1,4 @@
+import datetime
 import os
 import sys
 
@@ -103,6 +104,40 @@ def _load_model(model_path: str):
     return model, "cpu", "int8"
 
 
+_META_DIVIDER = "─" * 32
+
+
+def _format_txt_header(metadata: dict | None, download_date: str) -> str:
+    """組.txt逐字稿開頭的來源資訊區塊。metadata是None(本機上傳、或WinError重試
+    救回來沒有entry可用)時，只標記本機上傳+下載日期，不假裝有完整資訊。"""
+    lines = [_META_DIVIDER]
+    if metadata and metadata.get("url"):
+        lines.append(f"來源: {metadata.get('url')}")
+        lines.append(f"頻道: {metadata.get('channel') or '未知'}")
+        lines.append(f"標題: {metadata.get('title') or '未知'}")
+        lines.append(f"上傳日期: {metadata.get('upload_date') or '未知'}")
+    else:
+        lines.append("來源: 本機上傳或無法取得原始網址資訊")
+    lines.append(f"下載日期: {download_date}")
+    lines.append(_META_DIVIDER)
+    return "\n".join(lines)
+
+
+def _format_srt_meta_line(metadata: dict | None, download_date: str) -> str:
+    """組SRT第1條metadata cue的單行內容(pipe分隔，方便之後正則表達式解析回結構化資料)。"""
+    if metadata and metadata.get("url"):
+        parts = [
+            f"來源: {metadata.get('url')}",
+            f"頻道: {metadata.get('channel') or '未知'}",
+            f"標題: {metadata.get('title') or '未知'}",
+            f"上傳日期: {metadata.get('upload_date') or '未知'}",
+            f"下載日期: {download_date}",
+        ]
+    else:
+        parts = ["來源: 本機上傳或無法取得原始網址資訊", f"下載日期: {download_date}"]
+    return "[來源資訊] " + " | ".join(parts)
+
+
 def _format_srt_timestamp(seconds: float) -> str:
     """把秒數轉成 SRT 標準時間格式 HH:MM:SS,mmm。"""
     total_ms = max(0, int(round(seconds * 1000)))
@@ -158,17 +193,26 @@ class Transcriber:
 
         return "\n".join(lines), seg_list
 
-    def save_transcript(self, text: str, output_path: str):
-        """將文字結果存成 .txt 檔。"""
+    def save_transcript(self, text: str, output_path: str, metadata: dict | None = None):
+        """將文字結果存成 .txt 檔，開頭附上影片來源資訊(不用側車檔，打開.txt就看得到)。"""
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        download_date = datetime.date.today().strftime("%Y-%m-%d")
+        header = _format_txt_header(metadata, download_date)
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write(text)
+            f.write(header + "\n\n" + text)
 
-    def save_srt(self, segments: list, output_path: str):
-        """將 segment 清單存成標準 .srt 字幕檔。"""
+    def save_srt(self, segments: list, output_path: str, metadata: dict | None = None):
+        """將 segment 清單存成標準 .srt 字幕檔。
+
+        來源資訊塞成編號1、時長只有1毫秒(00:00:00,000-->00:00:00,001)的字幕cue，
+        放在最前面——用文字編輯器打開一眼就看到，播放時只閃過1毫秒不影響觀看。
+        原本的字幕條目全部往後遞增編號，時間軸本身不受影響。
+        """
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        lines = []
-        for idx, seg in enumerate(segments, 1):
+        download_date = datetime.date.today().strftime("%Y-%m-%d")
+        lines = ["1", "00:00:00,000 --> 00:00:00,001", _format_srt_meta_line(metadata, download_date), ""]
+        for offset, seg in enumerate(segments):
+            idx = offset + 2
             lines.append(str(idx))
             lines.append(f"{_format_srt_timestamp(seg['start'])} --> {_format_srt_timestamp(seg['end'])}")
             lines.append(seg["text"])
